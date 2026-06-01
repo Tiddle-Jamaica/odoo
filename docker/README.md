@@ -34,6 +34,13 @@ Open:
 http://localhost:8069
 ```
 
+Odoo login:
+
+```text
+Email: admin
+Password: admin
+```
+
 Open pgAdmin:
 
 ```text
