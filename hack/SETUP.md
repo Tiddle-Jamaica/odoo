@@ -207,6 +207,7 @@ You can run this project with Docker by containerizing two services:
 
 - An Odoo application container built from this source checkout.
 - A PostgreSQL database container.
+- A pgAdmin container for browser-based PostgreSQL inspection.
 
 Required local tools:
 
@@ -221,8 +222,10 @@ Recommended container layout:
 odoo-dev/
   app: runs ./odoo-bin from this repository
   db: runs postgres
+  pgadmin: browser UI for PostgreSQL
   db-data volume: stores PostgreSQL data
   odoo-data volume: stores Odoo filestore/session/asset data
+  pgadmin-data volume: stores pgAdmin state
 ```
 
 The root `docker/` folder contains the actual virtualization files:
@@ -231,6 +234,7 @@ The root `docker/` folder contains the actual virtualization files:
 - `docker/Dockerfile`
 - `docker/odoo-docker.conf`
 - `docker/README.md`
+- `docker/pgadmin/servers.json`
 
 The Compose file follows this shape:
 
@@ -272,9 +276,26 @@ services:
       -d odoo_dev
       --dev=xml,qweb,assets
 
+  pgadmin:
+    image: dpage/pgadmin4:8
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+
 volumes:
   db-data:
   odoo-data:
+  pgadmin-data:
 ```
 
 A matching `docker/odoo-docker.conf` uses the Compose service name as the database host:
@@ -327,10 +348,34 @@ Open:
 http://localhost:8069
 ```
 
+Open pgAdmin:
+
+```text
+http://localhost:5050
+```
+
+pgAdmin login:
+
+```text
+Email: admin@example.com
+Password: admin
+```
+
+The PostgreSQL server is pre-registered in pgAdmin as `Odoo PostgreSQL`. Use these database credentials if pgAdmin asks for them:
+
+```text
+Host: db
+Port: 5432
+Database: postgres
+Username: odoo
+Password: odoo
+```
+
 Docker development notes:
 
 - Keep PostgreSQL data in a named volume so database state survives container rebuilds.
 - Keep Odoo filestore data in a named volume so attachments and generated files survive restarts.
+- Keep pgAdmin data in a named volume so saved browser database UI state survives restarts.
 - Bind mount the repository so edits to Python, XML, JS, and SCSS files are visible inside the container.
 - Use `/web?debug=assets` while working on `addons/web/static/src`.
 - Re-run module updates inside the container after changing server XML views, for example:
